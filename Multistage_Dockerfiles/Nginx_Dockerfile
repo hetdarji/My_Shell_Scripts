@@ -1,0 +1,24 @@
+# Stage 1: Install dependencies only (cached unless package files change)
+FROM node:16-alpine AS deps
+WORKDIR /app
+# Only copy package files to leverage Docker cache
+COPY package*.json ./
+RUN npm ci
+
+# Stage 2: Build the React app
+FROM node:16-alpine AS build
+WORKDIR /app
+# Copy the cached node_modules from the deps stage
+COPY --from=deps /app/node_modules ./node_modules
+# Copy the rest of the application files
+COPY . .
+# Build the production-ready React app
+RUN npm run build
+
+# Stage 3: Serve the static files using Nginx
+FROM nginx:stable-alpine
+# Copy the production build from the build stage to Nginx's web directory
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
